@@ -41,6 +41,7 @@ export function AuditLogsPage() {
       setLoading(false);
     }
   };
+  console.log('logs:', logs);
 
   useEffect(() => {
     fetchLogs();
