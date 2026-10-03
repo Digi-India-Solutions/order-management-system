@@ -355,7 +355,7 @@ export function PackagingPage() {
             {/* Packaging Workflow Status Selection */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1.5">
-                Workflow Stage *
+                Packaging Stage *
               </label>
               <select
                 value={formData.packagingStatus}
