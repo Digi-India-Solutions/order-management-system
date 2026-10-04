@@ -1,17 +1,14 @@
 /**
  * Fetch API Client for OMS Portal
- * Production API: https://omsapi.digiindiasolutions.com
  */
 
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  // If VITE_API_URL is provided, use it (trimming any trailing slashes)
-  const base = (envUrl && envUrl.trim())
-    ? envUrl.trim().replace(/\/+$/, '')
-    : 'https://omsapi.digiindiasolutions.com';
-
-  // Ensure /api path is present since all backend routes are mounted under /api
-  return base.endsWith('/api') ? base : `${base}/api`;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    const base = envUrl.trim().replace(/\/+$/, '');
+    return base.endsWith('/api') ? base : `${base}/api`;
+  }
+  return '/api';
 };
 
 const BASE_URL = getApiBaseUrl();
