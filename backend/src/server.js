@@ -25,8 +25,27 @@ app.use(helmet({
   crossOriginResourcePolicy: false
 }));
 
+// Allowed Origins for CORS (Production Frontend + Local Development)
+const allowedOrigins = [
+  'https://oms.digiindiasolutions.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+];
+
+if (config.frontendUrl && !allowedOrigins.includes(config.frontendUrl)) {
+  allowedOrigins.push(config.frontendUrl);
+}
+
 app.use(cors({
-  origin: true, // Allow frontend origin dynamically
+  origin: (origin, callback) => {
+    // Allow non-browser requests (mobile, server-to-server, curl) or whitelisted origins
+    if (!origin || allowedOrigins.includes(origin) || config.nodeEnv !== 'production') {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS policy blocked access from origin: ${origin}`));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
