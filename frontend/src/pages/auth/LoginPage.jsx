@@ -6,17 +6,12 @@ import {
   Lock,
   Mail,
   ArrowRight,
-  ShieldCheck,
-  UserCheck,
-  Warehouse,
-  Briefcase,
   Clock,
   Eye,
   EyeOff,
   CheckCircle2,
   Sparkles,
   Shield,
-  Check,
   Activity,
   Layers,
   Zap,
@@ -32,7 +27,6 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [approvalNotice, setApprovalNotice] = useState(null);
   const { login } = useAuth();
@@ -66,65 +60,7 @@ export function LoginPage() {
     }
   };
 
-  const demoRoles = [
-    {
-      id: 'superadmin',
-      label: 'Super Admin',
-      holder: 'Mohit (Master)',
-      email: 'mohitpoewal12@gmail.com',
-      pass: '798214',
-      roleTag: 'Full Master Access',
-      icon: ShieldCheck,
-      accent: 'emerald',
-    },
-    {
-      id: 'admin',
-      label: 'Admin',
-      holder: 'Operations',
-      email: 'admin@oms.com',
-      pass: 'Admin@123',
-      roleTag: 'System Operations',
-      icon: UserCheck,
-      accent: 'blue',
-    },
-    {
-      id: 'salesmanager',
-      label: 'Sales Mgr',
-      holder: 'Quotations',
-      email: 'salesmanager@oms.com',
-      pass: 'Admin@123',
-      roleTag: 'Pipeline & Quotes',
-      icon: Briefcase,
-      accent: 'indigo',
-    },
-    {
-      id: 'salesperson',
-      label: 'Sales Rep',
-      holder: 'Assigned Orders',
-      email: 'salesperson@oms.com',
-      pass: 'Admin@123',
-      roleTag: 'Orders & Clients',
-      icon: UserCheck,
-      accent: 'amber',
-    },
-    {
-      id: 'storemanager',
-      label: 'Store Mgr',
-      holder: 'Warehouse Hub',
-      email: 'storemanager@oms.com',
-      pass: 'Admin@123',
-      roleTag: 'Packaging & Dispatch',
-      icon: Warehouse,
-      accent: 'cyan',
-    },
-  ];
 
-  const handleSelectRole = (role) => {
-    setSelectedRole(role.id);
-    setEmail(role.email);
-    setPassword(role.pass);
-    setApprovalNotice(null);
-  };
 
   return (
     <div className="min-h-screen w-full bg-[#f8fafc] text-slate-800 flex flex-col lg:flex-row antialiased">
@@ -384,47 +320,7 @@ export function LoginPage() {
             </div>
           )}
 
-          {/* Quick Demo Persona Switcher (Clean, professional, not toy buttons) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-slate-700">Quick Demo Access</span>
-              <span className="text-[11px] text-slate-400 font-mono">Click to autofill</span>
-            </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {demoRoles.map((role) => {
-                const isSelected = selectedRole === role.id;
-                return (
-                  <button
-                    key={role.id}
-                    type="button"
-                    onClick={() => handleSelectRole(role)}
-                    className={`relative text-left p-2.5 rounded-xl border transition-all duration-150 flex flex-col justify-between group ${
-                      isSelected
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                        : 'bg-white hover:bg-slate-50 border-slate-200/90 text-slate-700 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <span className={`text-xs font-semibold truncate ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                        {role.label}
-                      </span>
-                      {isSelected ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      ) : (
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-blue-500 transition-colors" />
-                      )}
-                    </div>
-                    <div className="mt-1">
-                      <div className={`text-[10px] truncate ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                        {role.holder}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Clean Enterprise Login Card */}
           <div className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200/90 shadow-sm shadow-slate-200/50 space-y-4">
@@ -442,10 +338,7 @@ export function LoginPage() {
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setSelectedRole(null);
-                    }}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@company.com"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/15 focus:border-blue-600 transition"
                   />
@@ -473,10 +366,7 @@ export function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setSelectedRole(null);
-                    }}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="w-full pl-10 pr-10 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/15 focus:border-blue-600 transition font-mono"
                   />

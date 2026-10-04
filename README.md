@@ -4,9 +4,15 @@ A full-stack, enterprise-grade Order Management System built with PostgreSQL, Ex
 
 ---
 
-## 🚀 Live Services
+## 🚀 Production & Development Services
 
-- **Frontend Application (Vite + React + Tailwind CSS)**: [http://127.0.0.1:5173](http://127.0.0.1:5173)
+### Production Environments
+- **Frontend Portal**: [https://oms.digiindiasolutions.com](https://oms.digiindiasolutions.com)
+- **Backend REST API**: [https://omsapi.digiindiasolutions.com](https://omsapi.digiindiasolutions.com)
+- **API Health Check**: [https://omsapi.digiindiasolutions.com/api/health](https://omsapi.digiindiasolutions.com/api/health)
+
+### Local Development Services
+- **Frontend Application (Vite + React)**: [http://localhost:5173](http://localhost:5173)
 - **Backend REST API (Node.js + Express.js)**: [http://localhost:5000](http://localhost:5000)
 - **API Health Check**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
 

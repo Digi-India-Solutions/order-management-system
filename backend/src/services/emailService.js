@@ -79,7 +79,7 @@ async function getTransporter() {
 /**
  * Sends Email Verification Link with Token
  */
-async function sendVerificationLink(email, name, token, frontendUrl = 'http://localhost:5173') {
+async function sendVerificationLink(email, name, token, frontendUrl = config.frontendUrl || 'https://oms.digiindiasolutions.com') {
   const mailer = await getTransporter();
   const verifyUrl = `${frontendUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 
@@ -151,7 +151,7 @@ async function sendVerificationLink(email, name, token, frontendUrl = 'http://lo
 /**
  * Sends Password Reset Link with Token
  */
-async function sendPasswordResetLink(email, name, token, frontendUrl = 'http://localhost:5173') {
+async function sendPasswordResetLink(email, name, token, frontendUrl = config.frontendUrl || 'https://oms.digiindiasolutions.com') {
   const mailer = await getTransporter();
   const resetUrl = `${frontendUrl}/forgot-password?token=${token}&email=${encodeURIComponent(email)}`;
 

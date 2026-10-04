@@ -1,11 +1,31 @@
 /**
  * Fetch API Client for OMS Portal
+ * Production API: https://omsapi.digiindiasolutions.com
  */
 
-const BASE_URL = '/api';
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  // If VITE_API_URL is provided, use it (trimming any trailing slashes)
+  const base = (envUrl && envUrl.trim())
+    ? envUrl.trim().replace(/\/+$/, '')
+    : 'https://omsapi.digiindiasolutions.com';
+
+  // Ensure /api path is present since all backend routes are mounted under /api
+  return base.endsWith('/api') ? base : `${base}/api`;
+};
+
+const BASE_URL = getApiBaseUrl();
 
 export async function request(endpoint, options = {}) {
-  const url = `${BASE_URL}${endpoint}`;
+  // Normalize endpoint to prevent double slashes or missing leading slash
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  // Prevent duplicate /api if endpoint already starts with /api/
+  const formattedEndpoint = cleanEndpoint.startsWith('/api/')
+    ? cleanEndpoint.slice(4)
+    : cleanEndpoint;
+
+  const url = `${BASE_URL}${formattedEndpoint}`;
   const token = localStorage.getItem('oms_token');
 
   const headers = {
