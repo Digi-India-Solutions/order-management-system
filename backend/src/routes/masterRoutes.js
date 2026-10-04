@@ -24,10 +24,5 @@ router.post('/stores', requirePermission('masters.manage'), masterController.cre
 router.put('/stores/:id', requirePermission('masters.manage'), masterController.updateStore);
 router.delete('/stores/:id', requirePermission('masters.manage'), masterController.deleteStore);
 
-// Taxes
-router.get('/taxes', masterController.getTaxes);
-router.post('/taxes', requirePermission('masters.manage'), masterController.createTax);
-router.put('/taxes/:id', requirePermission('masters.manage'), masterController.updateTax);
-router.delete('/taxes/:id', requirePermission('masters.manage'), masterController.deleteTax);
-
 module.exports = router;
+

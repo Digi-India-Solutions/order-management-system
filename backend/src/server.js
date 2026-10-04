@@ -100,11 +100,12 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-const server = app.listen(config.port, () => {
+const HOST = '0.0.0.0';
+const server = app.listen(config.port, HOST, () => {
   console.log(`===============================================`);
-  console.log(`🚀 OMS Enterprise Backend running on port ${config.port}`);
+  console.log(`🚀 OMS Enterprise Backend running at http://127.0.0.1:${config.port}`);
   console.log(`📍 Environment: ${config.nodeEnv}`);
-  console.log(`🔗 Health Check: http://localhost:${config.port}/api/health`);
+  console.log(`🔗 Health Check: http://127.0.0.1:${config.port}/api/health`);
   console.log(`===============================================`);
 });
 

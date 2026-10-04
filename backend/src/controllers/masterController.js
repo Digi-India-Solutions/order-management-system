@@ -275,73 +275,6 @@ async function deleteStore(req, res) {
   }
 }
 
-// ==========================================
-// TAXES
-// ==========================================
-async function getTaxes(req, res) {
-  try {
-    const result = await db.query('SELECT * FROM taxes ORDER BY rate ASC');
-    return sendSuccess(res, result.rows);
-  } catch (error) {
-    return sendError(res, error.message, 500);
-  }
-}
-
-async function createTax(req, res) {
-  try {
-    const { name, rate, description } = req.body;
-    if (!name || rate === undefined) return sendError(res, 'Tax name and percentage rate are required', 400);
-
-    const result = await db.query(
-      `INSERT INTO taxes (name, rate, description) VALUES ($1, $2, $3) RETURNING *`,
-      [name.trim(), parseFloat(rate), description || null]
-    );
-
-    return sendSuccess(res, result.rows[0], 'Tax created', 201);
-  } catch (error) {
-    return sendError(res, error.message, 500);
-  }
-}
-
-async function updateTax(req, res) {
-  try {
-    const { id } = req.params;
-    const { name, rate, description, isActive } = req.body;
-
-    const result = await db.query(`
-      UPDATE taxes
-      SET 
-        name = COALESCE($1, name),
-        rate = COALESCE($2, rate),
-        description = COALESCE($3, description),
-        is_active = COALESCE($4, is_active),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $5
-      RETURNING *;
-    `, [name, rate !== undefined ? parseFloat(rate) : null, description, isActive, id]);
-
-    if (result.rows.length === 0) return sendError(res, 'Tax record not found', 404);
-    return sendSuccess(res, result.rows[0], 'Tax updated');
-  } catch (error) {
-    return sendError(res, error.message, 500);
-  }
-}
-
-async function deleteTax(req, res) {
-  try {
-    const { id } = req.params;
-    const prodCheck = await db.query('SELECT id FROM products WHERE tax_id = $1 LIMIT 1', [id]);
-    if (prodCheck.rows.length > 0) {
-      await db.query('UPDATE taxes SET is_active = false WHERE id = $1', [id]);
-      return sendSuccess(res, null, 'Tax rate in use by products, marked Inactive.');
-    }
-    await db.query('DELETE FROM taxes WHERE id = $1', [id]);
-    return sendSuccess(res, null, 'Tax rate deleted');
-  } catch (error) {
-    return sendError(res, error.message, 500);
-  }
-}
-
 module.exports = {
   getCategories,
   createCategory,
@@ -356,10 +289,6 @@ module.exports = {
   getStores,
   createStore,
   updateStore,
-  deleteStore,
-
-  getTaxes,
-  createTax,
-  updateTax,
-  deleteTax
+  deleteStore
 };
+
