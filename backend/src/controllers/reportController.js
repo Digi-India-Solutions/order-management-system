@@ -137,7 +137,7 @@ async function getTeamPerformanceReport(req, res) {
         COUNT(DISTINCT so.id) as orders_count,
         COALESCE(SUM(so.grand_total), 0) as total_sales,
         COALESCE(AVG(so.grand_total), 0) as avg_order_value,
-        COUNT(DISTINCT so.id) FILTER (WHERE so.order_status = 'DELIVERED') as completed_orders
+        COUNT(DISTINCT so.id) FILTER (WHERE UPPER(so.order_status) = 'DELIVERED') as completed_orders
       FROM users u
       INNER JOIN roles r ON u.role_id = r.id AND r.name IN ('sales_person', 'sales_manager')
       LEFT JOIN customers c ON u.id = c.assigned_sales_person_id

@@ -126,11 +126,16 @@ async function getOrders(req, res) {
         so.subtotal, so.discount_total, so.tax_total, so.grand_total,
         so.paid_amount, so.pending_amount, so.payment_mode,
         so.payment_status, so.order_status, so.delivery_address, so.city, so.state, so.pincode,
+        so.delivered_at, so.delivery_notes,
         so.remarks, so.created_at, so.updated_at,
         c.name AS customer_name, c.phone AS customer_phone, c.email AS customer_email,
         u.name AS sales_person_name,
         s.name AS store_name,
         pkg.packaging_status,
+        pkg.carrier_name,
+        pkg.tracking_number,
+        pkg.dispatched_at,
+        pkg.delivered_at AS pkg_delivered_at,
         COUNT(items.id) as item_count
       FROM sales_orders so
       LEFT JOIN customers c ON so.customer_id = c.id
@@ -139,7 +144,9 @@ async function getOrders(req, res) {
       LEFT JOIN packaging pkg ON so.id = pkg.order_id
       LEFT JOIN sales_order_items items ON so.id = items.order_id
       ${whereSql}
-      GROUP BY so.id, c.name, c.phone, c.email, u.name, s.name, pkg.packaging_status
+      GROUP BY 
+        so.id, c.name, c.phone, c.email, u.name, s.name, 
+        pkg.packaging_status, pkg.carrier_name, pkg.tracking_number, pkg.dispatched_at, pkg.delivered_at
       ORDER BY so.id DESC
       LIMIT $${paramIdx} OFFSET $${paramIdx + 1};
     `;
@@ -743,11 +750,18 @@ async function updateOrder(req, res) {
   }
 }
 
-// 5. UPDATE ORDER STATUS
+// 5. UPDATE ORDER STATUS & DELIVERY
 async function updateOrderStatus(req, res) {
   try {
     const { id } = req.params;
-    const { status, remarks } = req.body;
+    const {
+      status,
+      remarks,
+      carrierName,
+      trackingNumber,
+      deliveredAt,
+      deliveryNotes
+    } = req.body;
 
     if (!status) {
       return sendError(res, 'New status is required.', 400);
@@ -770,32 +784,107 @@ async function updateOrderStatus(req, res) {
       }
     }
 
+    const upperStatus = String(status).trim().toUpperCase();
+
+    let finalDeliveredAt = currentOrder.delivered_at;
+    if (upperStatus === 'DELIVERED') {
+      finalDeliveredAt = deliveredAt ? new Date(deliveredAt) : (currentOrder.delivered_at || new Date());
+    } else if (['PENDING', 'CONFIRMED', 'PROCESSING', 'PACKAGING', 'DRAFT'].includes(upperStatus)) {
+      finalDeliveredAt = null;
+    }
+
     const updateRes = await db.query(`
       UPDATE sales_orders
-      SET order_status = $1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
+      SET order_status = $1,
+          delivered_at = $2,
+          delivery_notes = COALESCE($3, delivery_notes),
+          remarks = COALESCE($4, remarks),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $5
       RETURNING *;
-    `, [status, id]);
+    `, [
+      upperStatus,
+      finalDeliveredAt,
+      deliveryNotes || remarks || null,
+      remarks || null,
+      id
+    ]);
+
+    // Handle Packaging and Logistics Sync
+    if (['CONFIRMED', 'PROCESSING', 'PACKAGING', 'PACKED', 'DISPATCHED', 'DELIVERED'].includes(upperStatus)) {
+      let pkgStatus = 'WAITING_FOR_PACKAGING';
+      if (upperStatus === 'DELIVERED') {
+        pkgStatus = 'DELIVERED';
+      } else if (upperStatus === 'DISPATCHED') {
+        pkgStatus = 'READY_FOR_DISPATCH';
+      } else if (upperStatus === 'PACKED') {
+        pkgStatus = 'PACKED';
+      } else if (upperStatus === 'PACKAGING') {
+        pkgStatus = 'PACKAGING_STARTED';
+      }
+
+      const dispatchedDate = (upperStatus === 'DISPATCHED' || upperStatus === 'DELIVERED') ? new Date() : null;
+
+      await db.query(`
+        INSERT INTO packaging (
+          order_id, store_id, packaging_status, carrier_name, tracking_number, dispatched_at, delivered_at, remarks
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (order_id) DO UPDATE SET 
+          packaging_status = CASE 
+            WHEN EXCLUDED.packaging_status = 'DELIVERED' THEN 'DELIVERED'
+            WHEN EXCLUDED.packaging_status = 'READY_FOR_DISPATCH' THEN 'READY_FOR_DISPATCH'
+            ELSE COALESCE(packaging.packaging_status, 'WAITING_FOR_PACKAGING')
+          END,
+          carrier_name = COALESCE(EXCLUDED.carrier_name, packaging.carrier_name),
+          tracking_number = COALESCE(EXCLUDED.tracking_number, packaging.tracking_number),
+          dispatched_at = COALESCE(packaging.dispatched_at, EXCLUDED.dispatched_at),
+          delivered_at = COALESCE(EXCLUDED.delivered_at, packaging.delivered_at),
+          remarks = COALESCE(EXCLUDED.remarks, packaging.remarks),
+          updated_at = CURRENT_TIMESTAMP;
+      `, [
+        id,
+        currentOrder.store_id || 1,
+        pkgStatus,
+        carrierName || null,
+        trackingNumber || null,
+        dispatchedDate,
+        upperStatus === 'DELIVERED' ? finalDeliveredAt : null,
+        remarks || deliveryNotes || null
+      ]);
+    } else if (['PENDING', 'CANCELLED', 'DRAFT'].includes(upperStatus)) {
+      await db.query(`DELETE FROM packaging WHERE order_id = $1`, [id]);
+    }
+
+    // Format descriptive timeline remarks
+    let detailedRemarks = remarks;
+    if (!detailedRemarks) {
+      if (upperStatus === 'DELIVERED') {
+        detailedRemarks = `Order delivered successfully to customer.`;
+        if (carrierName) detailedRemarks += ` Carrier: ${carrierName}.`;
+        if (trackingNumber) detailedRemarks += ` AWB: ${trackingNumber}.`;
+        if (deliveryNotes) detailedRemarks += ` Notes: ${deliveryNotes}.`;
+      } else if (upperStatus === 'DISPATCHED') {
+        detailedRemarks = `Order dispatched for delivery.`;
+        if (carrierName) detailedRemarks += ` Courier: ${carrierName}.`;
+        if (trackingNumber) detailedRemarks += ` AWB/Tracking #: ${trackingNumber}.`;
+      } else {
+        detailedRemarks = `Status changed to ${upperStatus}`;
+      }
+    }
+
+    // Ensure valid user ID for foreign key reference
+    let validUserId = null;
+    if (req.user?.id) {
+      const uRes = await db.query('SELECT id FROM users WHERE id = $1', [req.user.id]);
+      if (uRes.rows.length > 0) validUserId = req.user.id;
+    }
 
     // Record history
     await db.query(`
       INSERT INTO order_status_history (order_id, previous_status, new_status, changed_by, remarks)
       VALUES ($1, $2, $3, $4, $5)
-    `, [id, currentOrder.order_status, status, req.user.id, remarks || `Status changed to ${status}`]);
-
-    // Ensure packaging entry exists immediately if order is confirmed or in packaging flow
-    const upperStatus = String(status).trim().toUpperCase();
-    if (['CONFIRMED', 'PROCESSING', 'PACKAGING', 'PACKED'].includes(upperStatus)) {
-      await db.query(`
-        INSERT INTO packaging (order_id, store_id, packaging_status)
-        VALUES ($1, $2, 'WAITING_FOR_PACKAGING')
-        ON CONFLICT (order_id) DO UPDATE SET 
-          packaging_status = COALESCE(packaging.packaging_status, 'WAITING_FOR_PACKAGING'),
-          store_id = EXCLUDED.store_id;
-      `, [id, currentOrder.store_id || 1]);
-    } else if (['PENDING', 'CANCELLED', 'DRAFT'].includes(upperStatus)) {
-      await db.query(`DELETE FROM packaging WHERE order_id = $1`, [id]);
-    }
+    `, [id, currentOrder.order_status, upperStatus, validUserId, detailedRemarks]);
 
     await logAudit({
       userId: req.user.id,
@@ -805,15 +894,27 @@ async function updateOrderStatus(req, res) {
       module: 'ORDERS',
       recordId: currentOrder.order_number,
       oldValues: { status: currentOrder.order_status },
-      newValues: { status, remarks },
+      newValues: { status: upperStatus, remarks: detailedRemarks, carrierName, trackingNumber, deliveredAt: finalDeliveredAt },
       req
     });
 
-    return sendSuccess(res, updateRes.rows[0], `Order status updated to ${status}`);
+    const pkgData = await db.query('SELECT * FROM packaging WHERE order_id = $1', [id]);
+
+    return sendSuccess(res, {
+      ...updateRes.rows[0],
+      packaging: pkgData.rows[0] || null
+    }, `Order status updated to ${upperStatus}`);
   } catch (error) {
     console.error('updateOrderStatus error:', error);
     return sendError(res, error.message, 500);
   }
+}
+
+// 5b. UPDATE DELIVERY STATUS (Direct Delivery Tracking Endpoint)
+async function updateDeliveryStatus(req, res) {
+  const { status, deliveryStatus } = req.body;
+  req.body.status = deliveryStatus || status || 'DELIVERED';
+  return updateOrderStatus(req, res);
 }
 
 // 6. RECORD / ADD ORDER PAYMENT (Features 2, 3, 4)
@@ -982,6 +1083,7 @@ module.exports = {
   createOrder,
   updateOrder,
   updateOrderStatus,
+  updateDeliveryStatus,
   addPayment,
   deleteOrder
 };

@@ -35,10 +35,14 @@ export function OrderDetailsPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Status Modal
+  // Status & Delivery Modal
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [statusRemarks, setStatusRemarks] = useState('');
+  const [carrierName, setCarrierName] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [deliveredAt, setDeliveredAt] = useState('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Record Payment Modal
@@ -55,7 +59,12 @@ export function OrderDetailsPage() {
       const res = await api.get(`/orders/${id}`);
       if (res.success) {
         setOrder(res.data);
-        setNewStatus(res.data.order_status);
+        const upper = String(res.data.order_status || 'PENDING').toUpperCase();
+        setNewStatus(upper);
+        setCarrierName(res.data.packaging?.carrier_name || '');
+        setTrackingNumber(res.data.packaging?.tracking_number || '');
+        setDeliveredAt(res.data.delivered_at ? new Date(res.data.delivered_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
+        setDeliveryNotes(res.data.delivery_notes || '');
         const pending = parseFloat(res.data.pending_amount !== undefined ? res.data.pending_amount : (res.data.grand_total - (res.data.paid_amount || 0)));
         setPaymentAmount(pending > 0 ? String(pending) : '');
       }
@@ -70,6 +79,16 @@ export function OrderDetailsPage() {
     fetchOrder();
   }, [id]);
 
+  const openDeliveryModal = (targetStatus = 'DELIVERED') => {
+    setNewStatus(targetStatus);
+    setStatusRemarks('');
+    setCarrierName(order?.packaging?.carrier_name || '');
+    setTrackingNumber(order?.packaging?.tracking_number || '');
+    setDeliveredAt(order?.delivered_at ? new Date(order.delivered_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16));
+    setDeliveryNotes(order?.delivery_notes || '');
+    setIsStatusModalOpen(true);
+  };
+
   const handleStatusUpdate = async (e) => {
     e.preventDefault();
     try {
@@ -77,6 +96,10 @@ export function OrderDetailsPage() {
       const res = await api.put(`/orders/${id}/status`, {
         status: newStatus,
         remarks: statusRemarks,
+        carrierName: carrierName || undefined,
+        trackingNumber: trackingNumber || undefined,
+        deliveredAt: newStatus === 'DELIVERED' ? (deliveredAt ? new Date(deliveredAt).toISOString() : new Date().toISOString()) : undefined,
+        deliveryNotes: deliveryNotes || undefined,
       });
       success(res.message || 'Order status updated successfully');
       setIsStatusModalOpen(false);
@@ -206,17 +229,26 @@ export function OrderDetailsPage() {
           </button>
 
           {hasPermission('orders.update') && (
-            <button
-              onClick={() => {
-                const s = String(order.order_status || '').toLowerCase();
-                setNewStatus(s.includes('confirm') ? 'Confirmed' : 'Pending');
-                setStatusRemarks('');
-                setIsStatusModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-xs font-medium text-white shadow-xs transition"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Update Status
-            </button>
+            <>
+              <button
+                onClick={() => openDeliveryModal('DELIVERED')}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition ${
+                  String(order.order_status).toUpperCase() === 'DELIVERED'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                <Truck className="w-3.5 h-3.5" />
+                {String(order.order_status).toUpperCase() === 'DELIVERED' ? 'Delivery Details' : 'Mark as Delivered'}
+              </button>
+
+              <button
+                onClick={() => openDeliveryModal(String(order.order_status || 'PENDING').toUpperCase())}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-xs font-medium text-white shadow-xs transition"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Update Status
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -490,6 +522,102 @@ export function OrderDetailsPage() {
         </div>
       </div>
 
+      {/* Delivery & Logistics Information Card */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4 print:hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+              <Truck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Delivery & Logistics Information</h3>
+              <p className="text-xs text-slate-500">Carrier dispatch, tracking details, and proof of delivery</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={order.order_status} size="md" />
+            {hasPermission('orders.update') && (
+              <button
+                onClick={() => openDeliveryModal('DELIVERED')}
+                className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition"
+              >
+                {String(order.order_status).toUpperCase() === 'DELIVERED' ? 'Edit Delivery Info' : 'Update Delivery Status'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Milestone Banner */}
+        {String(order.order_status).toUpperCase() === 'DELIVERED' ? (
+          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="text-xs flex-1">
+              <div className="font-bold text-sm text-emerald-950">
+                Order Successfully Delivered
+              </div>
+              <div className="mt-0.5 text-emerald-800">
+                Delivered on {order.delivered_at ? new Date(order.delivered_at).toLocaleString('en-GB') : 'Recorded'}.
+              </div>
+              {order.delivery_notes && (
+                <div className="mt-1.5 font-medium bg-white/70 p-2 rounded-lg text-emerald-900 border border-emerald-200/60">
+                  <span className="font-bold">Proof / Notes: </span>{order.delivery_notes}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : String(order.order_status).toUpperCase() === 'DISPATCHED' ? (
+          <div className="p-4 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-900 flex items-start gap-3">
+            <Truck className="w-5 h-5 text-cyan-600 shrink-0 mt-0.5" />
+            <div className="text-xs flex-1">
+              <div className="font-bold text-sm text-cyan-950">Order Dispatched & In Transit</div>
+              <div className="mt-0.5 text-cyan-800">Package has been handed over to courier for transit to customer address.</div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <span>Current fulfillment status: <strong>{order.order_status}</strong>. Package has not been marked delivered yet.</span>
+            {hasPermission('orders.update') && (
+              <button
+                onClick={() => openDeliveryModal('DELIVERED')}
+                className="underline font-semibold hover:text-amber-950 self-start sm:self-auto"
+              >
+                Mark Delivered Now &rarr;
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs pt-1">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
+            <span className="text-slate-500 block mb-1">Carrier Partner</span>
+            <span className="text-sm font-semibold text-slate-900">
+              {order.packaging?.carrier_name || 'Standard Courier / Staff Handover'}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
+            <span className="text-slate-500 block mb-1">Consignment / Tracking #</span>
+            <span className="text-sm font-mono font-bold text-brand-600">
+              {order.packaging?.tracking_number || 'Direct Delivery'}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
+            <span className="text-slate-500 block mb-1">Delivery Destination</span>
+            <span className="font-medium text-slate-800 block truncate" title={`${order.delivery_address || ''}, ${order.city || ''} ${order.pincode || ''}`}>
+              {order.city ? `${order.city}, ${order.state || ''}` : (order.delivery_address || 'Customer Address')}
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 shadow-xs">
+            <span className="text-slate-500 block mb-1">Delivery Status / Time</span>
+            <span className="font-mono text-slate-800 font-semibold">
+              {order.delivered_at ? new Date(order.delivered_at).toLocaleString('en-GB') : (order.order_status === 'DELIVERED' ? 'Delivered' : 'Pending')}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Packaging & Logistics Status (If available) */}
       {order.packaging && (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4 print:hidden">
@@ -653,41 +781,128 @@ export function OrderDetailsPage() {
         </form>
       </Modal>
 
-      {/* Status Update Modal */}
+      {/* Status & Delivery Update Modal */}
       <Modal
         isOpen={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
-        title={`Change Order Status: ${order.order_number}`}
-        maxWidth="max-w-md"
+        title={
+          newStatus === 'DELIVERED'
+            ? `Update Delivery Status: ${order.order_number}`
+            : `Change Order Status: ${order.order_number}`
+        }
+        maxWidth="max-w-lg"
       >
         <form onSubmit={handleStatusUpdate} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
-              New Status
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+              Order Fulfillment Status *
             </label>
             <select
               value={newStatus}
               onChange={(e) => setNewStatus(e.target.value)}
-              className="mt-1.5 w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-medium shadow-xs"
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-semibold shadow-xs"
             >
-              <option value="Pending">Pending</option>
-              <option value="Confirmed">Confirmed</option>
+              <option value="PENDING">PENDING — Waiting for confirmation</option>
+              <option value="CONFIRMED">CONFIRMED — Order verified & approved</option>
+              <option value="PROCESSING">PROCESSING — Order in process</option>
+              <option value="PACKAGING">PACKAGING — Warehouse picking/packing</option>
+              <option value="PACKED">PACKED — Boxed & ready</option>
+              <option value="DISPATCHED">DISPATCHED — Handed over / Out for delivery</option>
+              <option value="DELIVERED">DELIVERED — Successfully handed over to customer</option>
+              <option value="CANCELLED">CANCELLED — Order cancelled</option>
             </select>
             <p className="text-[11px] text-slate-500 mt-1">
-              Note: Order Status is independent of Payment Status.
+              Note: Order Fulfillment Status is tracked independently from Payment Status.
             </p>
           </div>
 
+          {/* Delivery & Tracking Information Section */}
+          {(newStatus === 'DELIVERED' || newStatus === 'DISPATCHED') && (
+            <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 uppercase tracking-wide">
+                <Truck className="w-4 h-4 text-emerald-600" />
+                {newStatus === 'DELIVERED' ? 'Delivery Handover Details' : 'Dispatch & Courier Tracking'}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Carrier / Courier Partner
+                  </label>
+                  <input
+                    type="text"
+                    value={carrierName}
+                    onChange={(e) => setCarrierName(e.target.value)}
+                    placeholder="e.g. Delhivery, BlueDart, DTDC, Local"
+                    className="w-full p-2 bg-white border border-emerald-300/80 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-xs"
+                  />
+                  <div className="flex gap-1 mt-1 flex-wrap">
+                    {['Delhivery', 'BlueDart', 'DTDC', 'In-House'].map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setCarrierName(c)}
+                        className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition"
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Tracking / AWB #
+                  </label>
+                  <input
+                    type="text"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    placeholder="AWB / Consignment #"
+                    className="w-full p-2 bg-white border border-emerald-300/80 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {newStatus === 'DELIVERED' && (
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    Delivered Date & Time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={deliveredAt}
+                    onChange={(e) => setDeliveredAt(e.target.value)}
+                    className="w-full p-2 bg-white border border-emerald-300/80 rounded-lg text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-xs"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                  Delivery Notes / Proof of Delivery
+                </label>
+                <input
+                  type="text"
+                  value={deliveryNotes}
+                  onChange={(e) => setDeliveryNotes(e.target.value)}
+                  placeholder="e.g. Received by customer, signed delivery receipt"
+                  className="w-full p-2 bg-white border border-emerald-300/80 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-xs"
+                />
+              </div>
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
-              Status Change Remarks
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+              Status Change Remarks / Notes
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={statusRemarks}
               onChange={(e) => setStatusRemarks(e.target.value)}
-              placeholder="e.g. Verified by sales rep, dispatched via courier..."
-              className="mt-1.5 w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs"
+              placeholder="e.g. Verified and handed over to customer..."
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-xs"
             />
           </div>
 
@@ -702,9 +917,13 @@ export function OrderDetailsPage() {
             <button
               type="submit"
               disabled={isUpdatingStatus}
-              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-xs font-medium text-white shadow-xs disabled:opacity-50 transition"
+              className={`px-5 py-2 rounded-xl text-xs font-semibold text-white shadow-xs disabled:opacity-50 transition ${
+                newStatus === 'DELIVERED'
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-brand-600 hover:bg-brand-700'
+              }`}
             >
-              {isUpdatingStatus ? 'Saving...' : 'Confirm Status Change'}
+              {isUpdatingStatus ? 'Saving...' : (newStatus === 'DELIVERED' ? 'Mark as Delivered' : 'Confirm Status Change')}
             </button>
           </div>
         </form>

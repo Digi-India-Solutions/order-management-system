@@ -215,12 +215,17 @@ async function updatePackaging(req, res) {
 
     let packedAt = oldPackaging?.packed_at;
     let dispatchedAt = oldPackaging?.dispatched_at;
+    let deliveredAt = oldPackaging?.delivered_at;
 
     if (packagingStatus === 'PACKED' && !packedAt) {
       packedAt = new Date();
     }
-    if (packagingStatus === 'READY_FOR_DISPATCH' && !dispatchedAt) {
+    if ((packagingStatus === 'READY_FOR_DISPATCH' || packagingStatus === 'DISPATCHED') && !dispatchedAt) {
       dispatchedAt = new Date();
+    }
+    if (packagingStatus === 'DELIVERED' && !deliveredAt) {
+      deliveredAt = new Date();
+      if (!dispatchedAt) dispatchedAt = new Date();
     }
 
     let updatedPkg;
@@ -230,8 +235,8 @@ async function updatePackaging(req, res) {
           order_id, store_id, packaging_status, assigned_to,
           package_count, weight_kg, dimensions, packaging_material,
           tracking_number, carrier_name, quality_checked, quality_checker_name, quality_notes,
-          remarks, packed_at, dispatched_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          remarks, packed_at, dispatched_at, delivered_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING *;
       `;
       const insRes = await client.query(insertSql, [
@@ -250,7 +255,8 @@ async function updatePackaging(req, res) {
         qualityNotes || null,
         remarks || null,
         packedAt,
-        dispatchedAt
+        dispatchedAt,
+        deliveredAt
       ]);
       updatedPkg = insRes.rows[0];
     } else {
@@ -271,8 +277,9 @@ async function updatePackaging(req, res) {
           remarks = COALESCE($12, remarks),
           packed_at = COALESCE($13, packed_at),
           dispatched_at = COALESCE($14, dispatched_at),
+          delivered_at = COALESCE($15, delivered_at),
           updated_at = CURRENT_TIMESTAMP
-        WHERE order_id = $15
+        WHERE order_id = $16
         RETURNING *;
       `;
       const upRes = await client.query(updateSql, [
@@ -290,6 +297,7 @@ async function updatePackaging(req, res) {
         remarks !== undefined ? remarks : null,
         packedAt || null,
         dispatchedAt || null,
+        deliveredAt || null,
         orderId
       ]);
       updatedPkg = upRes.rows[0];
@@ -301,14 +309,18 @@ async function updatePackaging(req, res) {
       correspondingOrderStatus = 'PACKAGING';
     } else if (packagingStatus === 'PACKED') {
       correspondingOrderStatus = 'PACKED';
-    } else if (packagingStatus === 'READY_FOR_DISPATCH') {
-      correspondingOrderStatus = 'PACKED';
+    } else if (packagingStatus === 'READY_FOR_DISPATCH' || packagingStatus === 'DISPATCHED') {
+      correspondingOrderStatus = 'DISPATCHED';
+    } else if (packagingStatus === 'DELIVERED') {
+      correspondingOrderStatus = 'DELIVERED';
     }
 
     if (correspondingOrderStatus !== order.order_status) {
       await client.query(`
         UPDATE sales_orders
-        SET order_status = $1, updated_at = CURRENT_TIMESTAMP
+        SET order_status = $1,
+            delivered_at = CASE WHEN $1 = 'DELIVERED' THEN COALESCE(delivered_at, CURRENT_TIMESTAMP) ELSE delivered_at END,
+            updated_at = CURRENT_TIMESTAMP
         WHERE id = $2;
       `, [correspondingOrderStatus, orderId]);
 

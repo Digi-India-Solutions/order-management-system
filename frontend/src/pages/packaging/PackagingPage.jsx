@@ -316,6 +316,8 @@ export function PackagingPage() {
               <option value="QUALITY_CHECK">Quality Check</option>
               <option value="PACKED">Packed</option>
               <option value="READY_FOR_DISPATCH">Ready for Dispatch</option>
+              <option value="DISPATCHED">Dispatched / In Transit</option>
+              <option value="DELIVERED">Delivered to Customer</option>
             </select>
           </div>
         }
@@ -367,6 +369,8 @@ export function PackagingPage() {
                 <option value="QUALITY_CHECK">QUALITY_CHECK (Under QC Inspection)</option>
                 <option value="PACKED">PACKED (Sealed & Verified)</option>
                 <option value="READY_FOR_DISPATCH">READY_FOR_DISPATCH (Handover to Courier)</option>
+                <option value="DISPATCHED">DISPATCHED (Handed Over / In Transit)</option>
+                <option value="DELIVERED">DELIVERED (Handed to Customer)</option>
               </select>
             </div>
 

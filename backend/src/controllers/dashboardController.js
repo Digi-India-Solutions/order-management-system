@@ -23,14 +23,14 @@ async function getDashboardStats(req, res) {
       SELECT 
         COUNT(*) as total_orders,
         COALESCE(SUM(so.grand_total), 0) as total_sales,
-        COUNT(*) FILTER (WHERE so.order_status = 'PENDING') as pending_orders,
-        COUNT(*) FILTER (WHERE so.order_status = 'CONFIRMED') as confirmed_orders,
-        COUNT(*) FILTER (WHERE so.order_status = 'PROCESSING') as processing_orders,
-        COUNT(*) FILTER (WHERE so.order_status = 'PACKAGING') as packaging_orders,
-        COUNT(*) FILTER (WHERE so.order_status = 'PACKED') as packed_orders,
-        COUNT(*) FILTER (WHERE so.order_status = 'DISPATCHED') as dispatched_orders,
-        COUNT(*) FILTER (WHERE so.order_status = 'DELIVERED') as delivered_orders,
-        COUNT(*) FILTER (WHERE so.order_status = 'CANCELLED') as cancelled_orders
+        COUNT(*) FILTER (WHERE UPPER(so.order_status) = 'PENDING') as pending_orders,
+        COUNT(*) FILTER (WHERE UPPER(so.order_status) = 'CONFIRMED') as confirmed_orders,
+        COUNT(*) FILTER (WHERE UPPER(so.order_status) = 'PROCESSING') as processing_orders,
+        COUNT(*) FILTER (WHERE UPPER(so.order_status) = 'PACKAGING') as packaging_orders,
+        COUNT(*) FILTER (WHERE UPPER(so.order_status) = 'PACKED') as packed_orders,
+        COUNT(*) FILTER (WHERE UPPER(so.order_status) = 'DISPATCHED') as dispatched_orders,
+        COUNT(*) FILTER (WHERE UPPER(so.order_status) = 'DELIVERED') as delivered_orders,
+        COUNT(*) FILTER (WHERE UPPER(so.order_status) = 'CANCELLED') as cancelled_orders
       FROM sales_orders so
       ${baseOrderWhere};
     `;

@@ -189,6 +189,8 @@ CREATE TABLE IF NOT EXISTS sales_orders (
     state VARCHAR(100),
     pincode VARCHAR(20),
     remarks TEXT,
+    delivered_at TIMESTAMPTZ,
+    delivery_notes TEXT,
     created_by INT REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -240,6 +242,7 @@ CREATE TABLE IF NOT EXISTS packaging (
     remarks TEXT,
     packed_at TIMESTAMPTZ,
     dispatched_at TIMESTAMPTZ,
+    delivered_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
