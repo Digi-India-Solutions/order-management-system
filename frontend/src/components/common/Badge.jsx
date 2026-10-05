@@ -60,9 +60,10 @@ export function Badge({ children, variant = 'default', size = 'md' }) {
     default: 'bg-slate-100 text-slate-700 border-slate-200'
   };
 
-  const key = String(variant).toLowerCase();
-  const directKey = String(variant);
-  const classes = variantMap[directKey] || variantMap[key] || variantMap.default;
+  const key = String(variant || '').toLowerCase();
+  const directKey = String(variant || '');
+  const upperKey = String(variant || '').toUpperCase();
+  const classes = variantMap[directKey] || variantMap[upperKey] || variantMap[key] || variantMap.default;
 
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border font-medium ${sizeClasses} ${classes}`}>

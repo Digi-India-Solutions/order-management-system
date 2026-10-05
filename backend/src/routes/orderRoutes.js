@@ -10,7 +10,8 @@ router.get('/', requirePermission('orders.read'), orderController.getOrders);
 router.get('/:id', requirePermission('orders.read'), orderController.getOrderById);
 router.post('/', requirePermission('orders.create'), orderController.createOrder);
 router.put('/:id', requirePermission('orders.update'), orderController.updateOrder);
-router.put('/:id/status', requirePermission('orders.update'), orderController.updateOrderStatus);
+router.put('/:id/status', requirePermission(['orders.update', 'packaging.update']), orderController.updateOrderStatus);
+router.put('/:id/delivery', requirePermission(['orders.update', 'packaging.update']), orderController.updateDeliveryStatus);
 router.post('/:id/payments', requirePermission('orders.update'), orderController.addPayment);
 router.delete('/:id', requirePermission('orders.delete'), orderController.deleteOrder);
 
